@@ -4,7 +4,7 @@ from sqlalchemy.sql import func
 
 class AssetType(Base):
     __tablename__ = "asset_types"
-    id = Column(Integer, primary_key=True)
+    id = Column(Integer, primary_key=True, autoincrement=True)
     
     # Internal name - e.g : "COIN", "GEM", "GOLD"
     code= Column(String(50), unique=True, nullable=False)
