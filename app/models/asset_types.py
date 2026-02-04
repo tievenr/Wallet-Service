@@ -1,6 +1,6 @@
-from sqlalchemy import Column, Integer, String, DateTime, Boolean,Index
+from sqlalchemy import Column, Integer, String, DateTime, Boolean, Index
 from sqlalchemy.sql import func
-#TOD0 : Import base from app/database.py
+from app.database import Base 
 
 class AssetType(Base):
     __tablename__ = "asset_types"

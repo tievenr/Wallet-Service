@@ -3,10 +3,10 @@ from sqlalchemy import (
     BigInteger, Numeric, ForeignKey, CheckConstraint, UniqueConstraint
 )
 from sqlalchemy.sql import func
-#TOD0 : Import base from app/database.py
+from app.database import Base 
 
 class Wallet(Base):
-    __tablename__="wallet"
+    __tablename__="wallets"
     id = Column(BigInteger, primary_key=True, autoincrement=True)
 
     # user_id can be negative for system wallets

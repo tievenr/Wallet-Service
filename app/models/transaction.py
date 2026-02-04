@@ -37,6 +37,7 @@ class Transaction(Base):
     
 
     __table_args__ = (
+        CheckConstraint("status IN ('PENDING', 'COMPLETED', 'FAILED')", name='chk_status_valid'),
         Index("idx_user_asset_status", "user_id", "asset_type_id", "status"),
         {"mysql_engine": "InnoDB"},
     )
