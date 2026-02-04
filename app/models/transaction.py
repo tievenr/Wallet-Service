@@ -1,6 +1,6 @@
 from sqlalchemy import (
     Column, Integer, String, DateTime, Numeric, 
-    BigInteger, ForeignKey, Index, Text, JSON
+    BigInteger, ForeignKey, Index, Text, JSON,CheckConstraint
 )
 from sqlalchemy.sql import func
 
@@ -25,7 +25,7 @@ class Transaction(Base):
     status = Column(String(50), nullable=False, server_default="PENDING", index=True) 
 
     #More info regarding the transaction
-    metadata = Column(JSON, nullable=True)
+    transaction_metadata = Column(JSON, nullable=True)
 
     # Error message if status is 'FAILED'
     error_message = Column(Text, nullable=True)
