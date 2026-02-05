@@ -71,4 +71,3 @@ def update_transaction_status(
             transaction.completed_at=datetime.now()
         if error_message:
             transaction.error_message=error_message
-        db.commit()
