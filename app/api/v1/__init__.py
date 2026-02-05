@@ -1,5 +1,5 @@
 from fastapi import APIRouter
-from app.api.v1 import health, wallets
+from . import health, wallets
 
 api_router = APIRouter()
 
