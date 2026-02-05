@@ -4,6 +4,8 @@ from sqlalchemy import (
 )
 from sqlalchemy.sql import func
 from app.database import Base 
+from sqlalchemy.orm import relationship
+
 
 class Wallet(Base):
     __tablename__="wallets"
@@ -20,6 +22,8 @@ class Wallet(Base):
 
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+    
+    asset_type = relationship("AssetType", backref="wallets")
 
     # Constraints for data integrity
     __table_args__ = (

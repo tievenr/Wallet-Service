@@ -8,8 +8,8 @@ class Settings(BaseSettings):
     # API Configuration
     PROJECT_NAME: str = "Wallet Service"
     API_V1_PREFIX: str = "/api/v1"
-    
-    # Add these so Pydantic recognizes them
+
+    # DB Config
     DB_USER: str
     DB_PASSWORD: str
     DB_NAME: str
