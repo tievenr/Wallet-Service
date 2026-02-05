@@ -71,6 +71,6 @@ def update_wallet_balance(
     
     wallet = db.query(Wallet).filter(Wallet.id == wallet_id).first()
     if wallet:
-        wallet.balance = new_balance  # Just set it like a normal Python object!
-        db.commit()
+        wallet.balance = new_balance
+
     
