@@ -5,6 +5,10 @@ class Settings(BaseSettings):
     APP_ENV: str = "development"
     SECRET_KEY: str
     
+    # API Configuration
+    PROJECT_NAME: str = "Wallet Service"
+    API_V1_PREFIX: str = "/api/v1"
+    
     # Add these so Pydantic recognizes them
     DB_USER: str
     DB_PASSWORD: str
