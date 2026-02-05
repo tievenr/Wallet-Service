@@ -3,10 +3,11 @@ services:
     image: mysql:8.0
     container_name: wallet_db
     environment:
-      MYSQL_ROOT_PASSWORD: rootpassword
-      MYSQL_DATABASE: wallet_db
-      MYSQL_USER: wallet_user
-      MYSQL_PASSWORD: wallet_pass
+      # Pulls from .env; defaults to 'rootpassword' if missing
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-rootpassword}
+      MYSQL_DATABASE: ${DB_NAME:-wallet_db}
+      MYSQL_USER: ${DB_USER:-wallet_user}
+      MYSQL_PASSWORD: ${DB_PASSWORD:-wallet_pass}
     ports:
       - "3306:3306"
     volumes:
@@ -20,9 +21,10 @@ services:
     build: .
     container_name: wallet_app
     environment:
-      DATABASE_URL: mysql+pymysql://wallet_user:wallet_pass@db:3306/wallet_db
-      APP_ENV: development
-      SECRET_KEY: dev-secret-key-change-in-production
+      # Pulls from .env file
+      DATABASE_URL: ${DATABASE_URL}
+      APP_ENV: ${APP_ENV}
+      SECRET_KEY: ${SECRET_KEY}
     ports:
       - "8000:8000"
     volumes:
