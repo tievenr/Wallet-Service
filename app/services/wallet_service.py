@@ -18,7 +18,7 @@ def get_or_create_wallet(
     db: Session, 
     user_id: int, 
     asset_type_id: int, 
-    is_system: bool = False
+    is_system: bool = False,
     system_wallet_type: Optional[str] = None
 ) -> Wallet:
     """
@@ -34,7 +34,8 @@ def get_or_create_wallet(
             db, 
             user_id=user_id, 
             asset_type_id=asset_type_id, 
-            is_system_wallet=is_system
+            is_system_wallet=is_system,
+            system_wallet_type=system_wallet_type
         )
     except IntegrityError:
         # 3. RACE CONDITION HIT! 
