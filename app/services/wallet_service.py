@@ -19,6 +19,7 @@ def get_or_create_wallet(
     user_id: int, 
     asset_type_id: int, 
     is_system: bool = False
+    system_wallet_type: Optional[str] = None
 ) -> Wallet:
     """
     Fetch a wallet or create it if it doesn't exist.
