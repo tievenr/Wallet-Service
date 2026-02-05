@@ -7,3 +7,4 @@ venv/
 *.db
 .coverage
 .DS_Store
+tests/

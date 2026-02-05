@@ -1,20 +1,17 @@
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
-    # Database
     DATABASE_URL: str
-    
-    # App
     APP_ENV: str = "development"
     SECRET_KEY: str
     
-    # API settings
-    API_V1_PREFIX: str = "/api/v1"
-    PROJECT_NAME: str = "Wallet Service"
-    
-    class Config:
-        env_file = ".env"
-        case_sensitive = True
+    # Add these so Pydantic recognizes them
+    DB_USER: str
+    DB_PASSWORD: str
+    DB_NAME: str
+    MYSQL_ROOT_PASSWORD: str
+    TEST_DATABASE_URL: str
 
-# Singleton instance
+    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+
 settings = Settings()
