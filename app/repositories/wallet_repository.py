@@ -38,18 +38,16 @@ def create_wallet(
         # balance defaults to 0 from the model
     )
     db.add(wallet)
-    db.commit()
-    db.refresh(wallet)
     return wallet
 
-def get_wallet_with_lock(db: Session, wallet_id: int) -> Optional[Wallet]:
+def get_wallet_with_lock(db: Session, user_id: int, asset_type_id: int) -> Optional[Wallet]:
     """
     Fetch wallet and LOCK it for the current transaction.
     
     Uses SELECT ... FOR UPDATE to prevent concurrent modifications.
     The lock is held until db.commit() or db.rollback().
     """
-    return db.query(Wallet).filter(Wallet.id == wallet_id).with_for_update().first()
+    return db.query(Wallet).filter(Wallet.user_id == user_id,Wallet.asset_type_id==asset_type_id).with_for_update().first()
 
 
 def update_wallet_balance(

@@ -16,8 +16,6 @@ def create_ledger_entry(
         description=description
         )
     db.add(ledger_entry)
-    db.commit()
-    db.refresh(ledger_entry)
     return ledger_entry
 
 def get_entries_by_transaction(db: Session, transaction_id: str) -> List[LedgerEntry]:

@@ -61,20 +61,22 @@ def process_topup(db: Session, request: TopupRequest) -> Transaction:
         treasury_balance_before = treasury_wallet.balance
         user_balance_before = user_wallet.balance
         
-        wallet_repo.update_wallet_balance(db, treasury_wallet.id, treasury_wallet.balance - request.amount)
-        wallet_repo.update_wallet_balance(db, user_wallet.id, user_wallet.balance + request.amount)
+        # Calculate new balances
+        treasury_balance_after = treasury_balance_before - request.amount
+        user_balance_after = user_balance_before + request.amount
         
-        treasury_balance_after = treasury_wallet.balance - request.amount
-        user_balance_after = user_wallet.balance + request.amount
+        # Update wallet balances
+        wallet_repo.update_wallet_balance(db, treasury_wallet.id, treasury_balance_after)
+        wallet_repo.update_wallet_balance(db, user_wallet.id, user_balance_after)
         
         # Step 6: Create ledger entries (double-entry)
-        # Debit from treasury
+        # Debit from treasury (negative amount)
         ledger_repo.create_ledger_entry(
             db=db,
             transaction_id=transaction_id,
             wallet_id=treasury_wallet.id,
             entry_type="DEBIT",
-            amount=request.amount,
+            amount=-request.amount,
             balance_before=treasury_balance_before,
             balance_after=treasury_balance_after,
             description=f"User {request.user_id} purchased {request.amount} {request.asset_type}"
@@ -96,8 +98,7 @@ def process_topup(db: Session, request: TopupRequest) -> Transaction:
         transaction_repo.update_transaction_status(
             db=db,
             transaction_id=transaction_id,
-            status="COMPLETED",
-            completed_at=datetime.utcnow()
+            status="COMPLETED"
         )
         
         # Step 8: Commit

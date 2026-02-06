@@ -35,11 +35,9 @@ def create_transaction(
         user_id=user_id,
         asset_type_id=asset_type_id,
         amount=amount,
-        metadata=metadata
+        transaction_metadata=metadata
         )
     db.add(transaction)
-    db.commit()
-    db.refresh(transaction)
     return transaction
 
 
@@ -59,7 +57,8 @@ def update_transaction_status(
     db: Session,
     transaction_id: str,
     status: str,
-    error_message: Optional[str] = None
+    error_message: Optional[str] = None,
+    completed_at: Optional[datetime] = None
 ) -> None:
     """
     Update transaction status to COMPLETED or FAILED.
