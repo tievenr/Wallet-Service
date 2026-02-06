@@ -1,0 +1,130 @@
+from sqlalchemy.orm import Session
+from sqlalchemy.exc import IntegrityError
+from decimal import Decimal
+from datetime import datetime
+import uuid
+
+from app.models.transaction import Transaction
+from app.models.wallet import Wallet
+from app.models.asset_type import AssetType
+from app.repositories import wallet_repo, transaction_repo, ledger_repo
+from app.utils.exceptions import InsufficientFundsError, DuplicateTransactionError
+from app.utils.constants import TREASURY_USER_ID, MARKETING_USER_ID, REVENUE_USER_ID
+from app.schemas.transaction import TopupRequest
+
+
+def process_topup(db: Session, request: TopupRequest) -> Transaction:
+    """
+    Process a TOPUP transaction (user purchases coins).
+    Money flows: Treasury -> User
+    """
+    try:
+        #Check idempotency
+        existing = transaction_repo.get_by_idempotency_key(db, request.idempotency_key)
+        if existing:
+            return existing
+        
+        # Step 2: Get asset type
+        asset_type = db.query(AssetType).filter(AssetType.code == request.asset_type).first()
+        if not asset_type:
+            raise ValueError(f"Asset type {request.asset_type} not found")
+        
+        # Step 3: Lock wallets in order (ascending wallet_id to prevent deadlocks)
+        treasury_wallet = wallet_repo.get_wallet_with_lock(db, TREASURY_USER_ID, asset_type.id)
+        user_wallet = wallet_repo.get_wallet_with_lock(db, request.user_id, asset_type.id)
+        
+        if not treasury_wallet:
+            raise ValueError(f"Treasury wallet not found for asset {request.asset_type}")
+        
+        # Create user wallet if doesn't exist
+        if not user_wallet:
+            user_wallet = wallet_repo.create_wallet(db, request.user_id, asset_type.id)
+            db.flush()  # Get the wallet ID
+            # Re-lock the newly created wallet
+            user_wallet = wallet_repo.get_wallet_with_lock(db, request.user_id, asset_type.id)
+        
+        # Step 4: Create transaction record (PENDING)
+        transaction_id = str(uuid.uuid4())
+        transaction = transaction_repo.create_transaction(
+            db=db,
+            transaction_id=transaction_id,
+            idempotency_key=request.idempotency_key,
+            transaction_type="TOPUP",
+            user_id=request.user_id,
+            asset_type_id=asset_type.id,
+            amount=request.amount,
+            metadata=request.metadata
+        )
+        db.flush()
+        
+        # Step 5: Update balances
+        treasury_balance_before = treasury_wallet.balance
+        user_balance_before = user_wallet.balance
+        
+        wallet_repo.update_wallet_balance(db, treasury_wallet.id, treasury_wallet.balance - request.amount)
+        wallet_repo.update_wallet_balance(db, user_wallet.id, user_wallet.balance + request.amount)
+        
+        treasury_balance_after = treasury_wallet.balance - request.amount
+        user_balance_after = user_wallet.balance + request.amount
+        
+        # Step 6: Create ledger entries (double-entry)
+        # Debit from treasury
+        ledger_repo.create_ledger_entry(
+            db=db,
+            transaction_id=transaction_id,
+            wallet_id=treasury_wallet.id,
+            entry_type="DEBIT",
+            amount=request.amount,
+            balance_before=treasury_balance_before,
+            balance_after=treasury_balance_after,
+            description=f"User {request.user_id} purchased {request.amount} {request.asset_type}"
+        )
+        
+        # Credit to user
+        ledger_repo.create_ledger_entry(
+            db=db,
+            transaction_id=transaction_id,
+            wallet_id=user_wallet.id,
+            entry_type="CREDIT",
+            amount=request.amount,
+            balance_before=user_balance_before,
+            balance_after=user_balance_after,
+            description=f"Purchased {request.amount} {request.asset_type}"
+        )
+        
+        # Step 7: Mark transaction as completed
+        transaction_repo.update_transaction_status(
+            db=db,
+            transaction_id=transaction_id,
+            status="COMPLETED",
+            completed_at=datetime.utcnow()
+        )
+        
+        # Step 8: Commit
+        db.commit()
+        db.refresh(transaction)
+        
+        return transaction
+        
+    except IntegrityError as e:
+        db.rollback()
+        # Check if it's duplicate idempotency key
+        existing = transaction_repo.get_by_idempotency_key(db, request.idempotency_key)
+        if existing:
+            return existing
+        raise DuplicateTransactionError(f"Transaction with key {request.idempotency_key} already exists")
+    
+    except Exception as e:
+        db.rollback()
+        # Try to mark transaction as failed if it was created
+        try:
+            transaction_repo.update_transaction_status(
+                db=db,
+                transaction_id=transaction_id if 'transaction_id' in locals() else None,
+                status="FAILED",
+                error_message=str(e)
+            )
+            db.commit()
+        except:
+            pass
+        raise
