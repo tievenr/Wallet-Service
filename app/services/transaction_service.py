@@ -9,7 +9,7 @@ from app.models.wallet import Wallet
 from app.models.asset_type import AssetType
 from app.repositories import wallet_repo, transaction_repo, ledger_repo
 from app.utils.exceptions import InsufficientFundsError, DuplicateTransactionError
-from app.utils.constants import TREASURY_USER_ID, MARKETING_USER_ID, REVENUE_USER_ID
+from app.utils.constants import SYSTEM_USER_IDS
 from app.schemas.transaction import TopupRequest
 
 
@@ -19,7 +19,7 @@ def process_topup(db: Session, request: TopupRequest) -> Transaction:
     Money flows: Treasury -> User
     """
     try:
-        #Check idempotency
+        # Step 1:Check idempotency
         existing = transaction_repo.get_by_idempotency_key(db, request.idempotency_key)
         if existing:
             return existing
@@ -30,7 +30,7 @@ def process_topup(db: Session, request: TopupRequest) -> Transaction:
             raise ValueError(f"Asset type {request.asset_type} not found")
         
         # Step 3: Lock wallets in order (ascending wallet_id to prevent deadlocks)
-        treasury_wallet = wallet_repo.get_wallet_with_lock(db, TREASURY_USER_ID, asset_type.id)
+        treasury_wallet = wallet_repo.get_wallet_with_lock(db, SYSTEM_USER_IDS["TREASURY"], asset_type.id)
         user_wallet = wallet_repo.get_wallet_with_lock(db, request.user_id, asset_type.id)
         
         if not treasury_wallet:
