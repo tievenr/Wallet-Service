@@ -38,6 +38,7 @@ def create_transaction(
         transaction_metadata=metadata
         )
     db.add(transaction)
+    db.flush()
     return transaction
 
 

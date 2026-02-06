@@ -43,21 +43,22 @@ def test_create_wallet(db_session, sample_asset_type):
 
 def test_create_system_wallet(db_session, sample_asset_type):
     """Test creating a system wallet."""
+    # Use user_id=-99 to avoid conflict with seed data (-1, -2, -3)
     wallet = wallet_repository.create_wallet(
         db_session,
-        user_id=-1,
+        user_id=-99,
         asset_type_id=sample_asset_type.id,
         is_system_wallet=True,
-        system_wallet_type="TREASURY"
+        system_wallet_type="CUSTOM_TREASURY"
     )
     
-    assert wallet.user_id == -1
+    assert wallet.user_id == -99
     assert wallet.is_system_wallet == True
-    assert wallet.system_wallet_type == "TREASURY"
+    assert wallet.system_wallet_type == "CUSTOM_TREASURY"
 
 def test_get_wallet_with_lock(db_session, sample_wallet):
     """Test fetching wallet with lock."""
-    wallet = wallet_repository.get_wallet_with_lock(db_session, sample_wallet.id)
+    wallet = wallet_repository.get_wallet_with_lock(db_session, sample_wallet.user_id, sample_wallet.asset_type_id)
     
     assert wallet is not None
     assert wallet.id == sample_wallet.id

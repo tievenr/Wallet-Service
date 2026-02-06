@@ -38,6 +38,7 @@ def create_wallet(
         # balance defaults to 0 from the model
     )
     db.add(wallet)
+    db.flush()
     return wallet
 
 def get_wallet_with_lock(db: Session, user_id: int, asset_type_id: int) -> Optional[Wallet]:

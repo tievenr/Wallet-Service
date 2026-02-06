@@ -6,7 +6,7 @@ import uuid
 
 from app.models.transaction import Transaction
 from app.models.wallet import Wallet
-from app.models.asset_type import AssetType
+from app.models.asset_types import AssetType
 from app.repositories import wallet_repo, transaction_repo, ledger_repo
 from app.utils.exceptions import InsufficientFundsError, DuplicateTransactionError
 from app.utils.constants import SYSTEM_USER_IDS

@@ -18,6 +18,7 @@ class TransactionResponse(BaseModel):
     asset_type_id: int
     amount: Decimal
     status: str
+    transaction_metadata: Optional[Dict[str, Any]] = None
     created_at: datetime
     completed_at: Optional[datetime] = None
     

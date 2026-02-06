@@ -2,20 +2,32 @@ from fastapi import Request, status
 from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError
 from sqlalchemy.exc import SQLAlchemyError
+from decimal import Decimal
 from app.utils.exceptions import (
     InsufficientFundsError,
     WalletNotFoundError,
     DuplicateTransactionError
 )
+from decimal import Decimal
 
 async def validation_exception_handler(request: Request, exc: RequestValidationError):
     """Handle Pydantic validation errors"""
+    # Convert Decimal objects to strings for JSON serialization
+    errors = exc.errors()
+    for error in errors:
+        if 'ctx' in error and isinstance(error['ctx'].get('gt'), Decimal):
+            error['ctx']['gt'] = str(error['ctx']['gt'])
+        if 'ctx' in error and isinstance(error['ctx'].get('lt'), Decimal):
+            error['ctx']['lt'] = str(error['ctx']['lt'])
+        if isinstance(error.get('input'), Decimal):
+            error['input'] = str(error['input'])
+    
     return JSONResponse(
-        status_code=status.HTTP_400_BAD_REQUEST,
+        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
         content={
             "error": "validation_error",
             "message": "Invalid request data",
-            "details": exc.errors()
+            "details": errors
         }
     )
 
