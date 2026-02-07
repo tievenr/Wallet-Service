@@ -168,14 +168,7 @@ cd Wallet-Service
 cp .env.example .env
 
 # Start services (MySQL + API)
-docker-compose up --build
-
-# Wait for services to initialize (~30 seconds)
-# The application will automatically:
-# 1. Start MySQL container
-# 2. Run Alembic migrations
-# 3. Seed initial data (asset types, system wallets, test users)
-# 4. Start FastAPI server
+./scripts/startup.sh
 ```
 
 The API will be available at:
