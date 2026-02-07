@@ -398,3 +398,177 @@ def test_bonus_endpoint_validation_negative_amount(client, db_session):
     
     # Assert
     assert response.status_code == 422
+
+
+
+
+# SPEND ENDPOINT TESTS
+
+def test_spend_endpoint_success(client, db_session):
+    """Test successful spend via API"""
+    # Arrange - First give user some coins
+    topup_payload = {
+        "idempotency_key": "api-topup-for-spend",
+        "user_id": 10,
+        "asset_type": "COINS",
+        "amount": "500.00"
+    }
+    client.post("/api/v1/transactions/topup", json=topup_payload)
+    
+    # Act - Now spend some coins
+    spend_payload = {
+        "idempotency_key": "api-spend-001",
+        "user_id": 10,
+        "asset_type": "COINS",
+        "amount": "100.00",
+        "metadata": {"item": "sword"}
+    }
+    response = client.post("/api/v1/transactions/spend", json=spend_payload)
+    
+    # Assert
+    assert response.status_code == 200
+    data = response.json()
+    assert data["transaction_type"] == "SPEND"
+    assert data["status"] == "COMPLETED"
+    assert Decimal(data["amount"]) == Decimal("100.00")
+    assert data["user_id"] == 10
+    assert "transaction_id" in data
+    assert data["transaction_metadata"] == {"item": "sword"}
+
+
+def test_spend_endpoint_idempotency(client, db_session):
+    """Test that duplicate idempotency key returns same transaction"""
+    # Arrange - Give user coins
+    topup_payload = {
+        "idempotency_key": "api-topup-for-spend-idempotent",
+        "user_id": 11,
+        "asset_type": "COINS",
+        "amount": "200.00"
+    }
+    client.post("/api/v1/transactions/topup", json=topup_payload)
+    
+    spend_payload = {
+        "idempotency_key": "api-spend-idempotent",
+        "user_id": 11,
+        "asset_type": "COINS",
+        "amount": "100.00"
+    }
+    
+    # Act - first request
+    response1 = client.post("/api/v1/transactions/spend", json=spend_payload)
+    data1 = response1.json()
+    
+    # Act - second request with same idempotency key
+    response2 = client.post("/api/v1/transactions/spend", json=spend_payload)
+    data2 = response2.json()
+    
+    # Assert
+    assert response1.status_code == 200
+    assert response2.status_code == 200
+    assert data1["transaction_id"] == data2["transaction_id"]
+    
+    # Verify balance only decreased once
+    asset_type = db_session.query(AssetType).filter(AssetType.code == "COINS").first()
+    user_wallet = db_session.query(Wallet).filter(
+        Wallet.user_id == 11,
+        Wallet.asset_type_id == asset_type.id
+    ).first()
+    # Balance should be 100, not 0
+    assert user_wallet.balance == Decimal("100.00")
+
+
+def test_spend_endpoint_insufficient_funds(client, db_session):
+    """Test error handling when user has insufficient funds"""
+    # Arrange - Give user only 50 coins
+    topup_payload = {
+        "idempotency_key": "api-topup-for-spend-insufficient",
+        "user_id": 12,
+        "asset_type": "COINS",
+        "amount": "50.00"
+    }
+    client.post("/api/v1/transactions/topup", json=topup_payload)
+    
+    # Act - Try to spend 100
+    spend_payload = {
+        "idempotency_key": "api-spend-insufficient",
+        "user_id": 12,
+        "asset_type": "COINS",
+        "amount": "100.00"
+    }
+    response = client.post("/api/v1/transactions/spend", json=spend_payload)
+    
+    # Assert
+    assert response.status_code == 400
+    data = response.json()
+    assert "insufficient funds" in data["detail"].lower()
+
+
+def test_spend_endpoint_invalid_asset_type(client, db_session):
+    """Test error handling for invalid asset type"""
+    # Arrange
+    spend_payload = {
+        "idempotency_key": "api-spend-invalid-asset",
+        "user_id": 1,
+        "asset_type": "INVALID_ASSET",
+        "amount": "100.00"
+    }
+    
+    # Act
+    response = client.post("/api/v1/transactions/spend", json=spend_payload)
+    
+    # Assert
+    assert response.status_code == 400
+    data = response.json()
+    assert "Asset type INVALID_ASSET not found" in data["detail"]
+
+
+def test_spend_endpoint_user_without_wallet(client, db_session):
+    """Test that spend without wallet creates wallet with 0, then fails"""
+    # Arrange - User 9999 has no wallet
+    spend_payload = {
+        "idempotency_key": "api-spend-no-wallet",
+        "user_id": 9999,
+        "asset_type": "COINS",
+        "amount": "100.00"
+    }
+    
+    # Act
+    response = client.post("/api/v1/transactions/spend", json=spend_payload)
+    
+    # Assert
+    assert response.status_code == 400
+    data = response.json()
+    assert "insufficient funds" in data["detail"].lower()
+
+
+def test_spend_endpoint_validation_missing_fields(client, db_session):
+    """Test validation errors for missing required fields"""
+    # Arrange
+    spend_payload = {
+        "idempotency_key": "api-spend-invalid",
+        "user_id": 1
+        # Missing asset_type and amount
+    }
+    
+    # Act
+    response = client.post("/api/v1/transactions/spend", json=spend_payload)
+    
+    # Assert
+    assert response.status_code == 422  # Validation error
+
+
+def test_spend_endpoint_validation_negative_amount(client, db_session):
+    """Test validation errors for negative amount"""
+    # Arrange
+    spend_payload = {
+        "idempotency_key": "api-spend-negative",
+        "user_id": 1,
+        "asset_type": "COINS",
+        "amount": "-50.00"
+    }
+    
+    # Act
+    response = client.post("/api/v1/transactions/spend", json=spend_payload)
+    
+    # Assert
+    assert response.status_code == 422
