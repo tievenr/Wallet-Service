@@ -31,42 +31,69 @@ graph TB
     Service -->|Data Access| Repo
     Repo -->|SQL + SELECT FOR UPDATE| DB
     
-    style API fill:#e1f5ff
-    style Service fill:#fff4e1
-    style Repo fill:#ffe1f5
-    style DB fill:#e1ffe1
+    style API fill:#0ea5e9,stroke:#0284c7,stroke-width:2px,color:#000
+    style Service fill:#f59e0b,stroke:#d97706,stroke-width:2px,color:#000
+    style Repo fill:#8b5cf6,stroke:#7c3aed,stroke-width:2px,color:#fff
+    style DB fill:#10b981,stroke:#059669,stroke-width:2px,color:#000
 ```
 
 ### Transaction Flow
 
-```mermaid
-sequenceDiagram
-    participant Client
-    participant API
-    participant Service
-    participant DB
-    
-    Client->>API: POST /api/v1/transactions/spend
-    API->>Service: process_spend(request)
-    
-    Service->>DB: Check idempotency_key
-    alt Transaction already processed
-        DB-->>Service: Return cached transaction
-        Service-->>API: Transaction result
-    else New transaction
-        Service->>DB: BEGIN TRANSACTION
-        Service->>DB: SELECT ... FOR UPDATE<br/>(Lock wallets in order)
-        Note over Service,DB: Locks held until COMMIT
-        Service->>Service: Validate sufficient balance
-        Service->>DB: UPDATE wallet balances
-        Service->>DB: INSERT ledger entries (DEBIT + CREDIT)
-        Service->>DB: UPDATE transaction status = COMPLETED
-        Service->>DB: COMMIT (Release locks)
-        DB-->>Service: Success
-        Service-->>API: Transaction result
-    end
-    
-    API-->>Client: 200 OK
+```
+┌────────┐         ┌─────────┐         ┌─────────┐         ┌──────────┐
+│ Client │         │   API   │         │ Service │         │ Database │
+└───┬────┘         └────┬────┘         └────┬────┘         └────┬─────┘
+    │                   │                   │                   │
+    │ POST /spend       │                   │                   │
+    ├──────────────────>│                   │                   │
+    │                   │ process_spend()   │                   │
+    │                   ├──────────────────>│                   │
+    │                   │                   │                   │
+    │                   │                   │ Check idempotency │
+    │                   │                   ├──────────────────>│
+    │                   │                   │                   │
+    │                   │                   │  Already exists?  │
+    │                   │                   │<──────────────────┤
+    │                   │                   │      (YES)        │
+    │                   │                   │  Return cached    │
+    │                   │                   │<──────────────────┤
+    │                   │                   │                   │
+    │                   │                   │      (NO)         │
+    │                   │                   │ BEGIN TRANSACTION │
+    │                   │                   ├──────────────────>│
+    │                   │                   │                   │
+    │                   │                   │ SELECT FOR UPDATE │
+    │                   │                   │  (Lock wallets)   │
+    │                   │                   ├──────────────────>│
+    │                   │                   │  Locks acquired   │
+    │                   │                   │<──────────────────┤
+    │                   │                   │                   │
+    │                   │                   │ Validate balance  │
+    │                   │                   │─┐                 │
+    │                   │                   │ │ Check funds     │
+    │                   │                   │<┘                 │
+    │                   │                   │                   │
+    │                   │                   │ UPDATE balances   │
+    │                   │                   ├──────────────────>│
+    │                   │                   │                   │
+    │                   │                   │ INSERT ledger     │
+    │                   │                   ├──────────────────>│
+    │                   │                   │                   │
+    │                   │                   │ UPDATE status     │
+    │                   │                   ├──────────────────>│
+    │                   │                   │                   │
+    │                   │                   │ COMMIT            │
+    │                   │                   ├──────────────────>│
+    │                   │                   │ (Release locks)   │
+    │                   │                   │<──────────────────┤
+    │                   │                   │                   │
+    │                   │ Transaction       │                   │
+    │                   │<──────────────────┤                   │
+    │                   │                   │                   │
+    │  200 OK           │                   │                   │
+    │<──────────────────┤                   │                   │
+    │  {result}         │                   │                   │
+    │                   │                   │                   │
 ```
 
 ### Database Schema
