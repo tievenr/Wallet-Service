@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from app.database import get_db
 from app.services import transaction_service
-from app.schemas.transaction import TopupRequest, TransactionResponse,BonusRequest
+from app.schemas.transaction import TopupRequest, TransactionResponse,BonusRequest,SpendRequest 
 from app.utils.exceptions import DuplicateTransactionError, InsufficientFundsError
 
 router = APIRouter()
@@ -31,6 +31,26 @@ def bonus(request: BonusRequest, db: Session = Depends(get_db)):
     """
     try:
         transaction = transaction_service.process_bonus(db, request)
+        return transaction
+    except DuplicateTransactionError as e:
+        raise HTTPException(status_code=409, detail=str(e))
+    except InsufficientFundsError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Internal error: {str(e)}")
+
+
+
+@router.post("/spend", response_model=TransactionResponse)
+def spend(request: SpendRequest, db: Session = Depends(get_db)):
+    """
+    Process a SPEND transaction.
+    User spends coins, which are collected by the revenue wallet.
+    """
+    try:
+        transaction = transaction_service.process_spend(db, request)
         return transaction
     except DuplicateTransactionError as e:
         raise HTTPException(status_code=409, detail=str(e))
