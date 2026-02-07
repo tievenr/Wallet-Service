@@ -69,9 +69,11 @@ def test_update_wallet_balance(db_session, sample_wallet):
     """Test updating wallet balance."""
     wallet_repository.update_wallet_balance(
         db_session,
-        wallet_id=sample_wallet.id,
+        wallet=sample_wallet,  # Changed from wallet_id
         new_balance=500.00
     )
+    
+    db_session.commit()  # Need to commit to persist
     
     # Fetch wallet again to verify
     updated_wallet = wallet_repository.get_wallet_by_id(db_session, sample_wallet.id)
