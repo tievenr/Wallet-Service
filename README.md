@@ -451,7 +451,8 @@ wallet-service/
 │
 ├── scripts/
 │   └── seed.sql                # Initial data (asset types, system wallets)
-│
+│   └── startup.sh              # Quickstart Script
+|
 ├── docker-compose.yml          # MySQL + App containers
 ├── Dockerfile                  # Python 3.11 with dependencies
 ├── requirements.txt            # Python packages
