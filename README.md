@@ -291,6 +291,18 @@ curl -X POST http://localhost:8000/api/v1/transactions/topup \
 # Second request returns the SAME transaction_id (no duplicate processing)
 ```
 
+## System Wallets
+
+The service uses three system wallets per asset type for internal accounting:
+
+| Wallet | User ID | Purpose |
+|--------|---------|---------|
+| **TREASURY** | -1 | Source of funds for TOPUP transactions |
+| **MARKETING** | -2 | Source of funds for BONUS transactions |
+| **REVENUE** | -3 | Destination for SPEND transactions |
+
+Each system wallet is seeded with 1,000,000 units per asset type (except REVENUE which starts at 0).
+
 ## Core Design Decisions
 
 ### 1. Double-Entry Ledger System
@@ -377,99 +389,16 @@ else:
 
 ## Testing
 
-### Run All Tests
+Comprehensive testing documentation including unit tests, integration tests, concurrency tests, and load testing is available in [TESTING.md](TESTING.md).
 
+**Quick start:**
 ```bash
-# From host machine (MySQL must be running)
-docker-compose up -d db  # Start database
-pytest tests/ -v         # Run all 69 tests
+# Run all 69 tests
+pytest tests/ -v
 
-# Expected: 69 passed tests
-```
-
-### Test Categories
-
-**Unit Tests (Repository Layer)**
-```bash
-pytest tests/test_wallet_repo.py -v
-pytest tests/test_transaction_repo.py -v
-pytest tests/test_ledger_repo.py -v
-```
-
-**Unit Tests (Service Layer)**
-```bash
-pytest tests/test_transaction_service.py -v
-# 24 tests covering:
-# - Success paths for TOPUP, BONUS, SPEND
-# - Idempotency handling
-# - Insufficient funds validation
-# - Wallet auto-creation
-# - Decimal precision
-# - Metadata storage
-```
-
-**Integration Tests (API Layer)**
-```bash
-pytest tests/test_transaction_api.py -v
-# 21 tests covering:
-# - End-to-end API workflows
-# - HTTP status codes (200, 400, 409, 422)
-# - Request validation
-# - Error response formats
-```
-
-**Concurrency Tests**
-```bash
-# Note: For clean test results, restart containers between runs
-docker-compose restart
-
+# Run specific test categories
 pytest tests/test_concurrency.py -v
-# 3 tests:
-# - test_concurrent_spends_same_wallet: Race condition with insufficient funds
-# - test_100_concurrent_small_spends: High contention scenario
-# - test_concurrent_topup_and_spend: Mixed operation types
 ```
-
-**Test Coverage**:
-- Idempotency verification
-- Edge cases (negative amounts, zero amounts, invalid asset types)
-- Concurrent transactions (prevents race conditions)
-- Decimal precision (20 digits, 8 decimal places)
-- Wallet auto-creation for new users
-
-## Load Testing Results
-
-Performance metrics under simulated concurrent load (100 users, 60 seconds):
-
-```bash
-# Install Locust
-pip install locust
-
-# Run load test
-locust -f locustfile.py --host=http://localhost:8000 --headless -u 100 -r 10 -t 60s
-```
-
-**Test Configuration:**
-- 100 concurrent users
-- 60 second duration  
-- Workload distribution: 60% balance checks, 20% topup, 10% bonus, 10% spend
-
-**Performance Metrics:**
-
-| Endpoint | Median Response Time | P95 Response Time | Throughput |
-|----------|---------------------|-------------------|------------|
-| Balance Check | 8ms | 19ms | 26.5 req/s |
-| Topup Transaction | 25ms | 59ms | 8.9 req/s |
-| Bonus Transaction | 23ms | 47ms | 4.5 req/s |
-| Spend Transaction | 36ms | 130ms | 4.4 req/s |
-| **Aggregate** | **8ms** | **70ms** | **~48 req/s** |
-
-**Key Observations:**
-- System maintains sub-40ms median response times under load
-- P99 latency: 260ms (acceptable for financial operations)
-- Zero deadlocks or race conditions detected
-- Spend transactions (most critical path) handled reliably with proper balance validation
-- Expected 404 errors for non-existent wallets (43%) are application-level checks, not system failures
 
 ## Project Structure
 
@@ -537,18 +466,6 @@ wallet-service/
 ├── locustfile.py               # Load testing scenarios
 └── .env.example                # Environment variables template
 ```
-
-## System Wallets
-
-The service uses three system wallets per asset type for internal accounting:
-
-| Wallet | User ID | Purpose |
-|--------|---------|---------|
-| **TREASURY** | -1 | Source of funds for TOPUP transactions |
-| **MARKETING** | -2 | Source of funds for BONUS transactions |
-| **REVENUE** | -3 | Destination for SPEND transactions |
-
-Each system wallet is seeded with 1,000,000 units per asset type (except REVENUE which starts at 0).
 
 ## API Documentation
 
