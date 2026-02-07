@@ -14,7 +14,7 @@ from app.utils.constants import SYSTEM_USER_IDS
 # Use TEST_DATABASE_URL from environment
 TEST_DATABASE_URL = os.getenv(
     "TEST_DATABASE_URL", 
-    "mysql+pymysql://wallet_user:walletpass@localhost:3307/wallet_test"
+        "mysql+pymysql://wallet_user:wallet_pass@localhost:3306/wallet_db"
 )
 
 # Create test engine
