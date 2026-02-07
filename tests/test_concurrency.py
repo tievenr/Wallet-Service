@@ -18,13 +18,6 @@ def create_worker_session():
 
 def worker_spend(user_id, amount, asset_type="COIN"):
     """Worker function for concurrent spend operations"""
-    import threading
-    import time
-    thread_id = threading.get_ident()
-    start_time = time.time()
-    
-    print(f"\n[WORKER-{thread_id}] Starting spend of {amount} at t={start_time:.6f}")
-    
     db = create_worker_session()
     try:
         request = SpendRequest(
@@ -33,23 +26,17 @@ def worker_spend(user_id, amount, asset_type="COIN"):
             asset_type=asset_type,
             amount=Decimal(str(amount))
         )
-        print(f"[WORKER-{thread_id}] About to call process_spend at t={time.time()-start_time:.6f}s")
         result = process_spend(db, request)
-        print(f"[WORKER-{thread_id}] process_spend returned, about to commit at t={time.time()-start_time:.6f}s")
         db.commit()
-        print(f"[WORKER-{thread_id}] ✅ COMMIT SUCCESS at t={time.time()-start_time:.6f}s")
         return {"success": True, "transaction_id": result.transaction_id}
     except InsufficientFundsError as e:
-        print(f"[WORKER-{thread_id}] ❌ INSUFFICIENT FUNDS at t={time.time()-start_time:.6f}s")
         db.rollback()
         return {"success": False, "error": "insufficient_funds"}
     except Exception as e:
-        print(f"[WORKER-{thread_id}] ❌ ERROR: {e} at t={time.time()-start_time:.6f}s")
         db.rollback()
         return {"success": False, "error": str(e)}
     finally:
         db.close()
-        print(f"[WORKER-{thread_id}] Session closed at t={time.time()-start_time:.6f}s")
 
 
 def worker_topup(user_id, amount, asset_type="COIN"):
@@ -77,10 +64,22 @@ def test_concurrent_spends_same_wallet():
     Test race condition: 2 threads try to spend more than available balance.
     Only ONE should succeed.
     """
-    # Arrange - Give user 1000 COIN
+    # Arrange - Give user EXACTLY 1000 COIN (clean slate)
     user_id = 500
     setup_db = TestingSessionLocal()
     try:
+        # Delete any existing wallet for this user to start fresh
+        asset_type = setup_db.query(AssetType).filter(AssetType.code == "COIN").first()
+        if asset_type:
+            existing_wallet = setup_db.query(Wallet).filter(
+                Wallet.user_id == user_id,
+                Wallet.asset_type_id == asset_type.id
+            ).first()
+            if existing_wallet:
+                setup_db.delete(existing_wallet)
+                setup_db.commit()
+        
+        # Now topup to get exactly 1000 COIN
         topup_request = TopupRequest(
             idempotency_key=str(uuid.uuid4()),  # UNIQUE KEY
             user_id=user_id,

@@ -67,8 +67,8 @@ def process_topup(db: Session, request: TopupRequest) -> Transaction:
         user_balance_after = user_balance_before + request.amount
         
         # Update wallet balances
-        wallet_repo.update_wallet_balance(db, treasury_wallet.id, treasury_balance_after)
-        wallet_repo.update_wallet_balance(db, user_wallet.id, user_balance_after)
+        wallet_repo.update_wallet_balance(db, treasury_wallet, treasury_balance_after)
+        wallet_repo.update_wallet_balance(db, user_wallet, user_balance_after)
         
         # Step 6: Create ledger entries (double-entry)
         # Debit from treasury (negative amount)
@@ -192,8 +192,8 @@ def process_bonus(db: Session, request: BonusRequest) -> Transaction:
         user_balance_after = user_balance_before + request.amount
         
         # Update wallet balances
-        wallet_repo.update_wallet_balance(db, marketing_wallet.id, marketing_balance_after)
-        wallet_repo.update_wallet_balance(db, user_wallet.id, user_balance_after)
+        wallet_repo.update_wallet_balance(db, marketing_wallet, marketing_balance_after)
+        wallet_repo.update_wallet_balance(db, user_wallet, user_balance_after)
         
         # Step 7: Create ledger entries (double-entry)
         # Debit from marketing (negative amount)
@@ -263,18 +263,10 @@ def process_spend(db: Session, request: SpendRequest) -> Transaction:
     Process a SPEND transaction (user spends coins).
     Money flows: User -> Revenue
     """
-    import threading
-    import time
-    thread_id = threading.get_ident()
-    start_time = time.time()
-    
-    print(f"  [{thread_id}] process_spend ENTERED for user {request.user_id}, amount {request.amount}")
-    
     try:
         # Step 1: Check idempotency
         existing = transaction_repo.get_by_idempotency_key(db, request.idempotency_key)
         if existing:
-            print(f"  [{thread_id}] Duplicate key, returning cached")
             return existing
         
         # Step 2: Get asset type
@@ -282,15 +274,10 @@ def process_spend(db: Session, request: SpendRequest) -> Transaction:
         if not asset_type:
             raise ValueError(f"Asset type {request.asset_type} not found")
         
-        print(f"  [{thread_id}] About to acquire locks at t={time.time()-start_time:.6f}s")
-        
         # Step 3: Lock wallets in order (ascending wallet_id to prevent deadlocks)
         # Lock revenue wallet first (system wallet), then user wallet
         revenue_wallet = wallet_repo.get_wallet_with_lock(db, SYSTEM_USER_IDS["REVENUE"], asset_type.id)
-        print(f"  [{thread_id}] 🔒 LOCKED revenue wallet at t={time.time()-start_time:.6f}s")
-        
         user_wallet = wallet_repo.get_wallet_with_lock(db, request.user_id, asset_type.id)
-        print(f"  [{thread_id}] 🔒 LOCKED user wallet {user_wallet.id if user_wallet else 'NULL'}, balance={user_wallet.balance if user_wallet else 'N/A'} at t={time.time()-start_time:.6f}s")
         
         if not revenue_wallet:
             raise ValueError(f"Revenue wallet not found for asset {request.asset_type}")
@@ -304,13 +291,10 @@ def process_spend(db: Session, request: SpendRequest) -> Transaction:
             user_wallet = wallet_repo.get_wallet_with_lock(db, request.user_id, asset_type.id)
         
         # Step 5: CRITICAL - Validate user has sufficient funds
-        print(f"  [{thread_id}] 💰 Balance check: wallet has {user_wallet.balance}, needs {request.amount}")
         if user_wallet.balance < request.amount:
-            print(f"  [{thread_id}] ❌ INSUFFICIENT FUNDS! Raising exception")
             raise InsufficientFundsError(
                 f"User wallet has insufficient funds. Balance: {user_wallet.balance}, Required: {request.amount}"
             )
-        print(f"  [{thread_id}] ✅ Balance check PASSED")
         
         # Step 6: Create transaction record (PENDING)
         transaction_id = str(uuid.uuid4())
@@ -335,11 +319,8 @@ def process_spend(db: Session, request: SpendRequest) -> Transaction:
         revenue_balance_after = revenue_balance_before + request.amount
         
         # Update wallet balances
-        print(f"  [{thread_id}] 📝 Updating user balance: {user_balance_before} -> {user_balance_after}")
-        wallet_repo.update_wallet_balance(db, user_wallet.id, user_balance_after)
-        print(f"  [{thread_id}] 📝 Updated user wallet")
-        wallet_repo.update_wallet_balance(db, revenue_wallet.id, revenue_balance_after)
-        print(f"  [{thread_id}] 📝 Updated revenue wallet")
+        wallet_repo.update_wallet_balance(db, user_wallet, user_balance_after)
+        wallet_repo.update_wallet_balance(db, revenue_wallet, revenue_balance_after)
         
         # Step 8: Create ledger entries (double-entry)
         # Debit from user (negative amount)

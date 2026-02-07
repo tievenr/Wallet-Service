@@ -53,23 +53,20 @@ def get_wallet_with_lock(db: Session, user_id: int, asset_type_id: int) -> Optio
 
 def update_wallet_balance(
     db: Session,
-    wallet_id: int,
+    wallet: Wallet,
     new_balance: float
 ) -> None:
     """
     Update a wallet's balance.
     
-    NOTE: This assumes you already locked the wallet!
-    Always call get_wallet_with_lock() first.
+    NOTE: This modifies the locked wallet object directly.
+    Always call get_wallet_with_lock() first and pass that object here.
     
     Args:
         db: Database session
-        wallet_id: ID of the wallet to update
+        wallet: The locked Wallet object to update
         new_balance: New balance value
     """
-    
-    wallet = db.query(Wallet).filter(Wallet.id == wallet_id).first()
-    if wallet:
-        wallet.balance = new_balance
+    wallet.balance = new_balance
 
     
